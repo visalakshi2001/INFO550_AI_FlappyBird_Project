@@ -1,3 +1,7 @@
 # ignore all pyc files.
 *.pyc
 
+images/network.png
+images/preprocess.png
+
+logs_bird/*

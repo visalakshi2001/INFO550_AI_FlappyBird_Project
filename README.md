@@ -20,5 +20,8 @@ python run.py
 ## How to Exit?
 On the console, press `CTRL+X` or `CTRL+C` to exit the loop.
 
+
+## Here is a small glimpse of the game run:
+
 <img src="./images/flappy_bird_demp.gif" width="250">
 
