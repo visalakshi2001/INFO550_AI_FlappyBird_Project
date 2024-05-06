@@ -114,24 +114,24 @@ def train(sph, readout, h_fc1, sess):
         if timestamp > EPOCH:
             minibatch = random.sample(D, BATCH)
 
-            s_j_batch = [batch[0] for batch in minibatch]
-            a_batch = [batch[1] for batch in minibatch]
-            r_batch = [batch[2] for batch in minibatch]
-            s_j1_batch = [batch[3] for batch in minibatch]
+            sjb = [batch[0] for batch in minibatch]
+            act_batch = [batch[1] for batch in minibatch]
+            reward_batch = [batch[2] for batch in minibatch]
+            sjb1 = [batch[3] for batch in minibatch]
 
-            y_batch = []
-            readout_j1_batch = readout.eval(feed_dict = {sph : s_j1_batch})
+            all_batch = []
+            outj1 = readout.eval(feed_dict = {sph : sjb1})
             for i in range(0, len(minibatch)):
                 end = minibatch[i][4]
                 if end:
-                    y_batch.append(r_batch[i])
+                    all_batch.append(reward_batch[i])
                 else:
-                    y_batch.append(r_batch[i] + DISCOUNT * np.max(readout_j1_batch[i]))
+                    all_batch.append(reward_batch[i] + DISCOUNT * np.max(outj1[i]))
 
             steps.run(feed_dict = {
-                epy : y_batch,
-                act : a_batch,
-                sph : s_j_batch}
+                epy : all_batch,
+                act : act_batch,
+                sph : sjb}
             )
 
         state_frame = state_frame_first
@@ -146,7 +146,7 @@ def train(sph, readout, h_fc1, sess):
         elif timestamp > EPOCH and timestamp <= EPOCH + RANDOMACT:
             state = "explore"
         else:
-            state = "train"
+            state = "learn"
 
         print("TIMESTEP", timestamp, "/ STATE", state, \
             "/ EPSILON", epsilon, "/ ACTION", "Fly" if Agent_action_pos else "Fall", "/ REWARD", reward_frame, \
