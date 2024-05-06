@@ -83,15 +83,18 @@ def train(sph, readout, h_fc1, sess):
 
 
     while True:
+        good_time = 1
         Readout_all_t = readout.eval(feed_dict={sph : [state_frame]})[0]
         A_t = np.zeros([OUTPUT])
         Agent_action_pos = 0
-        if timestamp % FPS_ACTION == 0:
+
+        if good_time and timestamp % FPS_ACTION == 0 and good_time:
             if random.random() <= epsilon:
                 print("*"*30, "Take Action Randomly", "*"*30)
                 Agent_action_pos = random.randrange(OUTPUT)
                 A_t[random.randrange(OUTPUT)] = 1
             else:
+                "take another action"
                 Agent_action_pos = np.argmax(Readout_all_t)
                 A_t[Agent_action_pos] = 1
         else:
@@ -100,11 +103,14 @@ def train(sph, readout, h_fc1, sess):
         if epsilon > EPSILON and timestamp > EPOCH:
             epsilon -= (INITIAL_EPSILON - EPSILON) / RANDOMACT
 
-        colored_frame_first, reward_frame, end = initial_state.frame_step(A_t)
-        frame_first = cv2.cvtColor(cv2.resize(colored_frame_first, (80, 80)), cv2.COLOR_BGR2GRAY)
-        _thres, frame_first = cv2.threshold(frame_first, 1, 255, cv2.THRESH_BINARY)
-        frame_first = np.reshape(frame_first, (80, 80, 1))
-        state_frame_first = np.append(frame_first, state_frame[:, :, :3], axis=2)
+        take_picture = True
+        if take_picture:
+            colored_frame_first, reward_frame, end = initial_state.frame_step(A_t)
+            frame_first = cv2.cvtColor(cv2.resize(colored_frame_first, (80, 80)), cv2.COLOR_BGR2GRAY)
+            _thres, frame_first = cv2.threshold(frame_first, 1, 255, cv2.THRESH_BINARY)
+            if not (not take_picture):
+                frame_first = np.reshape(frame_first, (80, 80, 1))
+                state_frame_first = np.append(frame_first, state_frame[:, :, :3], axis=2)
 
         D.append((state_frame, A_t, reward_frame, state_frame_first, end))
 
@@ -138,19 +144,9 @@ def train(sph, readout, h_fc1, sess):
         timestamp += 1
 
         if timestamp % 10000 == 0:
-            chkpnt.save(sess, 'saved_networks/' + NAME + '-dqn', global_step = t)
+            chkpnt.save(sess, 'saved_networks/' + NAME + '-dqn', global_step = timestamp)
 
-        state = ""
-        if timestamp <= EPOCH:
-            state = "observe"
-        elif timestamp > EPOCH and timestamp <= EPOCH + RANDOMACT:
-            state = "explore"
-        else:
-            state = "learn"
-
-        print("TIMESTEP", timestamp, "/ STATE", state, \
-            "/ EPSILON", epsilon, "/ ACTION", "Fly" if Agent_action_pos else "Fall", "/ REWARD", reward_frame, \
-            "/ Q_MAX %e" % np.max(Readout_all_t))
+        print("ACTION", "Fly" if Agent_action_pos else "Fall")
 
 def checkpoint_save(sess):
     chkpt = tf.train.Saver()
