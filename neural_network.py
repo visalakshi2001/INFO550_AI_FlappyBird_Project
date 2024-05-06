@@ -69,15 +69,12 @@ def train(sph, readout, h_fc1, sess):
 
     D = deque()
 
-    # a_file = open("logs_" + NAME + "/readout.txt", 'w')
-    # h_file = open("logs_" + NAME + "/hidden.txt", 'w')
-
     do_nothing = np.zeros(OUTPUT)
     do_nothing[0] = 1
-    x_t, r_0, terminal = initial_state.frame_step(do_nothing)
+    x_t, r_0, end = initial_state.frame_step(do_nothing)
     x_t = cv2.cvtColor(cv2.resize(x_t, (80, 80)), cv2.COLOR_BGR2GRAY)
     ret, x_t = cv2.threshold(x_t,1,255,cv2.THRESH_BINARY)
-    s_t = np.stack((x_t, x_t, x_t, x_t), axis=2)
+    state_frame = np.stack((x_t, x_t, x_t, x_t), axis=2)
 
     chkpnt = checkpoint_save(sess)
 
@@ -86,46 +83,47 @@ def train(sph, readout, h_fc1, sess):
 
 
     while True:
-        Readout_all_t = readout.eval(feed_dict={sph : [s_t]})[0]
+        Readout_all_t = readout.eval(feed_dict={sph : [state_frame]})[0]
         A_t = np.zeros([OUTPUT])
-        action_index = 0
+        Agent_action_pos = 0
         if timestamp % FPS_ACTION == 0:
             if random.random() <= epsilon:
                 print("*"*30, "Take Action Randomly", "*"*30)
-                action_index = random.randrange(OUTPUT)
+                Agent_action_pos = random.randrange(OUTPUT)
                 A_t[random.randrange(OUTPUT)] = 1
             else:
-                action_index = np.argmax(Readout_all_t)
-                A_t[action_index] = 1
+                Agent_action_pos = np.argmax(Readout_all_t)
+                A_t[Agent_action_pos] = 1
         else:
             A_t[0] = 1 
 
         if epsilon > EPSILON and timestamp > EPOCH:
             epsilon -= (INITIAL_EPSILON - EPSILON) / RANDOMACT
 
-        x_t1_colored, r_t, terminal = initial_state.frame_step(A_t)
-        x_t1 = cv2.cvtColor(cv2.resize(x_t1_colored, (80, 80)), cv2.COLOR_BGR2GRAY)
-        ret, x_t1 = cv2.threshold(x_t1, 1, 255, cv2.THRESH_BINARY)
-        x_t1 = np.reshape(x_t1, (80, 80, 1))
-        s_t1 = np.append(x_t1, s_t[:, :, :3], axis=2)
+        colored_frame_first, reward_frame, end = initial_state.frame_step(A_t)
+        frame_first = cv2.cvtColor(cv2.resize(colored_frame_first, (80, 80)), cv2.COLOR_BGR2GRAY)
+        _thres, frame_first = cv2.threshold(frame_first, 1, 255, cv2.THRESH_BINARY)
+        frame_first = np.reshape(frame_first, (80, 80, 1))
+        state_frame_first = np.append(frame_first, state_frame[:, :, :3], axis=2)
 
-        D.append((s_t, A_t, r_t, s_t1, terminal))
+        D.append((state_frame, A_t, reward_frame, state_frame_first, end))
+
         if len(D) > REWATCH:
             D.popleft()
 
         if timestamp > EPOCH:
             minibatch = random.sample(D, BATCH)
 
-            s_j_batch = [d[0] for d in minibatch]
-            a_batch = [d[1] for d in minibatch]
-            r_batch = [d[2] for d in minibatch]
-            s_j1_batch = [d[3] for d in minibatch]
+            s_j_batch = [batch[0] for batch in minibatch]
+            a_batch = [batch[1] for batch in minibatch]
+            r_batch = [batch[2] for batch in minibatch]
+            s_j1_batch = [batch[3] for batch in minibatch]
 
             y_batch = []
             readout_j1_batch = readout.eval(feed_dict = {sph : s_j1_batch})
             for i in range(0, len(minibatch)):
-                terminal = minibatch[i][4]
-                if terminal:
+                end = minibatch[i][4]
+                if end:
                     y_batch.append(r_batch[i])
                 else:
                     y_batch.append(r_batch[i] + DISCOUNT * np.max(readout_j1_batch[i]))
@@ -136,7 +134,7 @@ def train(sph, readout, h_fc1, sess):
                 sph : s_j_batch}
             )
 
-        s_t = s_t1
+        state_frame = state_frame_first
         timestamp += 1
 
         if timestamp % 10000 == 0:
@@ -151,7 +149,7 @@ def train(sph, readout, h_fc1, sess):
             state = "train"
 
         print("TIMESTEP", timestamp, "/ STATE", state, \
-            "/ EPSILON", epsilon, "/ ACTION", action_index, "/ REWARD", r_t, \
+            "/ EPSILON", epsilon, "/ ACTION", "Fly" if Agent_action_pos else "Fall", "/ REWARD", reward_frame, \
             "/ Q_MAX %e" % np.max(Readout_all_t))
 
 def checkpoint_save(sess):

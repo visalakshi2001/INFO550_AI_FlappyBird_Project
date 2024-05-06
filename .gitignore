@@ -5,3 +5,8 @@ images/network.png
 images/preprocess.png
 
 logs_bird/*
+
+saved_networks/bird-dqn-289*
+saved_networks/bird-dqn-290*
+saved_networks/bird-dqn-291*
+saved_networks/bird-dqn-292*
