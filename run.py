@@ -5,13 +5,13 @@ import tensorflow.compat.v1 as tf
 from neural_network import InitiateModel, train
 
 
-def playGame():
+def start():
     sess=tf.compat.v1.InteractiveSession()
-    s, readout, h_fc1 = InitiateModel()
-    train(s, readout, h_fc1, sess)
+    state, out, _ = InitiateModel()
+    train(state, out, _, sess)
 
 def main():
-    playGame()
+    start()
 
 if __name__ == "__main__":
     main()
